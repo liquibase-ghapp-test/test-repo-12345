@@ -1,0 +1,77 @@
+name: Liquibase Test Connection
+
+# Dynamic run-name includes dispatch ID for unique identification
+run-name: Test Connection - ${{ inputs.dispatch_id || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment name (e.g., dev, staging, prod)'
+        required: true
+        type: string
+      db_id:
+        description: 'Database connection ID (for tracking)'
+        required: true
+        type: string
+      db_type:
+        description: 'Database type'
+        required: true
+        type: choice
+        options:
+          - postgresql
+          - oracle
+          - sqlserver
+          - mysql
+      runner_label:
+        description: 'Runner label for self-hosted runners'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      dispatch_id:
+        description: 'Unique dispatch ID for tracking (auto-generated)'
+        required: false
+        type: string
+
+jobs:
+  test-connection:
+    name: Test Database Connection
+    runs-on: ${{ inputs.runner_label || 'ubuntu-latest' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Liquibase
+        uses: liquibase/setup-liquibase@v2
+        with:
+          version: '5.0.0'
+          edition: 'secure'
+
+      - name: Set environment variables
+        id: env
+        run: |
+          ENV_NAME="${{ inputs.environment }}"
+          ENV_UPPER=$(echo "$ENV_NAME" | tr '[:lower:]' '[:upper:]')
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+          echo "env_upper=$ENV_UPPER" >> $GITHUB_OUTPUT
+
+      - name: Test Database Connection
+        run: |
+          echo "Testing connection to ${{ inputs.environment }} database..."
+          # Use 'liquibase connect' command - tests DB access without requiring a changelog (requires license key)
+          liquibase connect \
+            --url="${{ secrets[format('LIQUIBASE_{0}_URL', steps.env.outputs.env_upper)] }}" \
+            --username="${{ secrets[format('LIQUIBASE_{0}_USERNAME', steps.env.outputs.env_upper)] }}" \
+            --password="${{ secrets[format('LIQUIBASE_{0}_PASSWORD', steps.env.outputs.env_upper)] }}"
+        env:
+          LIQUIBASE_LICENSE_KEY: ${{ secrets.LIQUIBASE_LICENSE_KEY }}
+
+      - name: Connection test result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "::notice::Database connection test PASSED for ${{ inputs.environment }}"
+          else
+            echo "::error::Database connection test FAILED for ${{ inputs.environment }}"
+          fi
