@@ -1,5 +1,7 @@
 name: Liquibase Policy Check
 
+run-name: Policy Check - PR#${{ github.event.pull_request.number }}
+
 on:
   pull_request:
     branches: [main]
@@ -25,17 +27,17 @@ jobs:
         working-directory: liquibase
         run: |
           liquibase checks run \
-            --check-name=SqlUserDefinedPatternCheck \
-            --check-name=ChangeDropColumnWarn \
-            --check-name=ChangeDropTableWarn \
-            --changelog-file=changelog.xml
+            --checks-settings-file=liquibase.checks-settings.conf \
+            --changelog-file=changelog.xml \
+            --checks-output=checks-results.json
         env:
           LIQUIBASE_COMMAND_CHECKS_RUN_FORMAT: JSON
+          LIQUIBASE_LICENSE_KEY: ${{ secrets.LIQUIBASE_LICENSE_KEY }}
 
       - name: Upload check results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: policy-check-results
-          path: liquibase/*.json
+          name: policy-check-results-${{ github.run_id }}
+          path: liquibase/checks-results.json
           retention-days: 30
