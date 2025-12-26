@@ -29,9 +29,9 @@ jobs:
           liquibase checks run \
             --checks-settings-file=liquibase.checks-settings.conf \
             --changelog-file=changelog.xml \
-            --checks-output=checks-results.json
+            --format=json > checks-results.json || true
+          cat checks-results.json
         env:
-          LIQUIBASE_COMMAND_CHECKS_RUN_FORMAT: JSON
           LIQUIBASE_LICENSE_KEY: ${{ secrets.LIQUIBASE_LICENSE_KEY }}
 
       - name: Upload check results
